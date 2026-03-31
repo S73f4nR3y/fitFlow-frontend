@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
 import '../../services/api_service.dart';
+import '../../components/dialogs/create_user_dialog.dart';
 import '../auth/login_screen.dart';
 
 class AdminScreen extends StatefulWidget {
@@ -281,117 +282,11 @@ class _AdminScreenState extends State<AdminScreen> {
   }
 
   void _showCreateUserDialog() {
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-    final firstNameController = TextEditingController();
-    final lastNameController = TextEditingController();
-    String selectedRole = 'client';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text('Crear Usuario', style: AppTextStyles.h3),
-              const SizedBox(height: 24),
-              TextField(
-                controller: firstNameController,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: lastNameController,
-                decoration: const InputDecoration(labelText: 'Apellido'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: emailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email'),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedRole,
-                decoration: const InputDecoration(labelText: 'Rol'),
-                items: const [
-                  DropdownMenuItem(value: 'client', child: Text('Cliente')),
-                  DropdownMenuItem(
-                    value: 'instructor',
-                    child: Text('Instructor'),
-                  ),
-                  DropdownMenuItem(value: 'admin', child: Text('Admin')),
-                ],
-                onChanged: (value) => selectedRole = value ?? 'client',
-              ),
-              const SizedBox(height: 24),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await _createUser({
-                    'email': emailController.text,
-                    'password': passwordController.text,
-                    'firstName': firstNameController.text,
-                    'lastName': lastNameController.text,
-                    'role': selectedRole,
-                  });
-                },
-                child: const Text('Crear'),
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
-    );
+    CreateUserDialog.show(context, onSuccess: _loadData);
   }
 
   Future<void> _createUser(Map<String, dynamic> data) async {
-    final api = context.read<ApiService>();
-    try {
-      await api.createUserAsAdmin(data);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Usuario creado!')));
-        _loadData();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    }
+    // Handled by CreateUserDialog
   }
 
   Future<void> _approveInstructor(String userId) async {

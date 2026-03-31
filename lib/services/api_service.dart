@@ -211,9 +211,12 @@ class ApiService {
     return jsonDecode(response.body);
   }
 
-  Future<List<dynamic>> getMyBookings() async {
+  Future<Map<String, dynamic>> getMyBookings({
+    int page = 1,
+    int pageSize = 10,
+  }) async {
     final response = await http.get(
-      Uri.parse('$baseUrl/bookings/my-bookings'),
+      Uri.parse('$baseUrl/bookings/my-bookings?page=$page&pageSize=$pageSize'),
       headers: _headers,
     );
     return jsonDecode(response.body);

@@ -84,7 +84,8 @@ class _ClientCalendarScreenState extends State<ClientCalendarScreen>
         endDate: _formatDateKey(endDate),
       );
 
-      final bookings = await api.getMyBookings();
+      final bookingsResult = await api.getMyBookings(page: 1, pageSize: 50);
+      final bookings = bookingsResult['data'] as List? ?? [];
 
       final availableEvents = <DateTime, List<dynamic>>{};
       for (var schedule in classes) {

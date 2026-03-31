@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_text_styles.dart';
+import '../../components/cards/booking_card.dart';
+import '../../components/cards/class_card.dart';
+import '../../components/sheets/instructor_profile_sheet.dart';
+import '../../components/sheets/class_details_sheet.dart';
 import '../auth/login_screen.dart';
 import '../instructor/instructor_screen.dart';
 import '../admin/admin_screen.dart';
@@ -22,6 +27,12 @@ class _HomeScreenState extends State<HomeScreen> {
   List<dynamic> _bookings = [];
   bool _isLoading = true;
   String _userRole = 'client';
+
+  // Pagination for bookings
+  int _bookingsPage = 1;
+  int _bookingsTotalPages = 1;
+  bool _isLoadingMoreBookings = false;
+  final ScrollController _bookingsScrollController = ScrollController();
 
   String? _getInstructorPhotoUrl(dynamic instructor) {
     // Check instructor.avatarUrl (from /instructors/profile/:id endpoint)
@@ -55,6 +66,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserAndData();
+    _bookingsScrollController.addListener(() {
+      if (_bookingsScrollController.position.pixels >=
+          _bookingsScrollController.position.maxScrollExtent - 200) {
+        _loadMoreBookings();
+      }
+    });
   }
 
   Future<void> _loadUserAndData() async {
@@ -154,6 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           } else {
             setState(() => _currentIndex = index);
+            if (index == 1) _loadMyBookings();
           }
         },
         items: const [
@@ -197,138 +215,15 @@ class _HomeScreenState extends State<HomeScreen> {
           final fitClass = _classes[index];
           final instructor = fitClass['instructor'];
 
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(fitClass['title'] ?? 'Clase', style: AppTextStyles.h3),
-                  const SizedBox(height: 8),
-                  Text(
-                    fitClass['description'] ?? '',
-                    style: AppTextStyles.body.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  if (instructor != null)
-                    InkWell(
-                      onTap: () => _showInstructorProfile(instructor),
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: AppColors.primary.withValues(
-                                alpha: 0.1,
-                              ),
-                              backgroundImage:
-                                  _getInstructorPhotoUrl(instructor) != null
-                                  ? NetworkImage(
-                                      _getInstructorPhotoUrl(instructor)!,
-                                    )
-                                  : null,
-                              child: _getInstructorPhotoUrl(instructor) == null
-                                  ? const Icon(
-                                      Icons.person,
-                                      color: AppColors.primary,
-                                      size: 20,
-                                    )
-                                  : null,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    instructor['displayName'] ?? 'Instructor',
-                                    style: AppTextStyles.h4,
-                                  ),
-                                  Text(
-                                    'Toca para ver perfil',
-                                    style: AppTextStyles.labelSmall.copyWith(
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right,
-                              color: AppColors.primary,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '\$${fitClass['price'] ?? 0}',
-                          style: AppTextStyles.labelSmall.copyWith(
-                            color: AppColors.primary,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.secondary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          '${fitClass['durationMinutes'] ?? 30} min',
-                          style: AppTextStyles.labelSmall,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Icon(
-                        Icons.people,
-                        size: 16,
-                        color: AppColors.textTertiary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${fitClass['maxParticipants'] ?? 20}',
-                        style: AppTextStyles.bodySmall,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ElevatedButton(
-                    onPressed: () {
-                      _showClassDetails(fitClass);
-                    },
-                    child: const Text('Ver Detalles'),
-                  ),
-                ],
-              ),
-            ),
+          return ClassCard(
+            fitClass: fitClass,
+            onTap: () => _showClassDetails(fitClass),
+            onInstructorTap: instructor != null
+                ? () => _showInstructorProfile(instructor)
+                : null,
+            showButton: true,
+            buttonText: 'Ver Detalles',
+            onButtonPressed: () => _showClassDetails(fitClass),
           );
         },
       ),
@@ -336,214 +231,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showInstructorProfile(dynamic instructor) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.border,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            CircleAvatar(
-              radius: 50,
-              backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-              backgroundImage: _getInstructorPhotoUrl(instructor) != null
-                  ? NetworkImage(_getInstructorPhotoUrl(instructor)!)
-                  : null,
-              child: _getInstructorPhotoUrl(instructor) == null
-                  ? const Icon(Icons.person, size: 50, color: AppColors.primary)
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              instructor['displayName'] ?? 'Instructor',
-              style: AppTextStyles.h2,
-              textAlign: TextAlign.center,
-            ),
-            if (instructor['bio'] != null &&
-                instructor['bio'].toString().isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                instructor['bio'].toString(),
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-            const SizedBox(height: 24),
-          ],
-        ),
-      ),
-    );
+    InstructorProfileSheet.show(context, instructor: instructor);
   }
 
   void _showClassDetails(dynamic fitClass) {
     final instructor = fitClass['instructor'];
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(fitClass['title'] ?? 'Clase', style: AppTextStyles.h2),
-              const SizedBox(height: 8),
-              Text(
-                fitClass['description'] ?? '',
-                style: AppTextStyles.body.copyWith(
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  _detailItem(
-                    Icons.attach_money,
-                    'Precio',
-                    '\$${fitClass['price'] ?? 0}',
-                  ),
-                  _detailItem(
-                    Icons.timer,
-                    'Duración',
-                    '${fitClass['durationMinutes'] ?? 30} min',
-                  ),
-                  _detailItem(
-                    Icons.people,
-                    'Cupo',
-                    '${fitClass['maxParticipants'] ?? 20}',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              if (instructor != null) ...[
-                Text('Instructor', style: AppTextStyles.h4),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showInstructorProfile(instructor);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 25,
-                          backgroundColor: AppColors.primary.withValues(
-                            alpha: 0.1,
-                          ),
-                          backgroundImage:
-                              _getInstructorPhotoUrl(instructor) != null
-                              ? NetworkImage(
-                                  _getInstructorPhotoUrl(instructor)!,
-                                )
-                              : null,
-                          child: _getInstructorPhotoUrl(instructor) == null
-                              ? const Icon(
-                                  Icons.person,
-                                  color: AppColors.primary,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                instructor['displayName'] ?? 'Instructor',
-                                style: AppTextStyles.h4,
-                              ),
-                              Text(
-                                'Toca para ver perfil',
-                                style: AppTextStyles.labelSmall.copyWith(
-                                  color: AppColors.primary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const Icon(
-                          Icons.chevron_right,
-                          color: AppColors.primary,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _showScheduleModal(fitClass);
-                  },
-                  child: const Text('Reservar Clase'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _detailItem(IconData icon, String label, String value) {
-    return Expanded(
-      child: Column(
-        children: [
-          Icon(icon, color: AppColors.primary, size: 24),
-          const SizedBox(height: 4),
-          Text(label, style: AppTextStyles.labelSmall),
-          Text(value, style: AppTextStyles.body),
-        ],
-      ),
+    ClassDetailsSheet.show(
+      context,
+      fitClass: fitClass,
+      onInstructorTap: () {
+        Navigator.pop(context);
+        _showInstructorProfile(instructor);
+      },
+      onBookPressed: () {
+        Navigator.pop(context);
+        _showScheduleModal(fitClass);
+      },
     );
   }
 
@@ -576,26 +279,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return ListView.builder(
+      controller: _bookingsScrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: _bookings.length,
+      itemCount:
+          _bookings.length + (_bookingsPage < _bookingsTotalPages ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index >= _bookings.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         final booking = _bookings[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          child: ListTile(
-            title: Text('Reserva #${booking['id']?.substring(0, 8)}'),
-            subtitle: Text('Status: ${booking['status']}'),
-            trailing: booking['status'] == 'confirmed'
-                ? IconButton(
-                    icon: const Icon(Icons.cancel),
-                    onPressed: () async {
-                      final api = context.read<ApiService>();
-                      await api.cancelBooking(booking['id']);
-                      _loadUserAndData();
-                    },
-                  )
-                : null,
-          ),
+
+        return BookingCard(
+          booking: booking,
+          onCancel: () async {
+            final api = context.read<ApiService>();
+            await api.cancelBooking(booking['id']);
+            _loadMyBookings();
+          },
         );
       },
     );
@@ -604,12 +308,40 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadMyBookings() async {
     final api = context.read<ApiService>();
     try {
-      final bookings = await api.getMyBookings();
+      final result = await api.getMyBookings(page: 1, pageSize: 10);
       if (mounted) {
-        setState(() => _bookings = bookings);
+        setState(() {
+          _bookings = result['data'] ?? [];
+          _bookingsPage = 1;
+          _bookingsTotalPages = result['totalPages'] ?? 1;
+        });
       }
     } catch (e) {
       debugPrint('Error: $e');
+    }
+  }
+
+  Future<void> _loadMoreBookings() async {
+    if (_isLoadingMoreBookings || _bookingsPage >= _bookingsTotalPages) return;
+
+    setState(() => _isLoadingMoreBookings = true);
+
+    final api = context.read<ApiService>();
+    try {
+      final result = await api.getMyBookings(
+        page: _bookingsPage + 1,
+        pageSize: 10,
+      );
+      if (mounted) {
+        setState(() {
+          _bookings.addAll(result['data'] ?? []);
+          _bookingsPage = _bookingsPage + 1;
+          _isLoadingMoreBookings = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading more bookings: $e');
+      if (mounted) setState(() => _isLoadingMoreBookings = false);
     }
   }
 }
